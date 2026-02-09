@@ -12,7 +12,10 @@ By using DaisyUI, we reduced the CSS codebase by roughly 88%, allowing us to foc
 You need The Giant API Enginge to run this demo
 
 Get it on Gumroad
+
 sithasoholdings.gumroad.com/l/fzggfj
 
+
 The Giant API Engine Series: Building a Zero-Dependency PHP SSE Server: The "Back to the Future" Deep Dive
+
 https://open.spotify.com/episode/5zAbL4S2mecvarAbNtUaNz?si=mTDVZsl1QzShLrGou3g4Zg
