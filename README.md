@@ -13,7 +13,7 @@ You need The Giant API Enginge to run this demo
 
 Get it on Gumroad
 
-sithasoholdings.gumroad.com/l/fzggfj
+https://sithasoholdings.gumroad.com/l/fzggfj
 
 
 The Giant API Engine Series: Building a Zero-Dependency PHP SSE Server: The "Back to the Future" Deep Dive
