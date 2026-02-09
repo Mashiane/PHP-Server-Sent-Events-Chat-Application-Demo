@@ -4,11 +4,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SSE Chat Simulation</title>
+    <title>WebSocket Chat Simulation</title>
     <!-- Dependencies -->
     <link href="https://cdn.jsdelivr.net/npm/daisyui@5" rel="stylesheet" type="text/css" />
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
-    <script src="sithasobase/scripts/SSEManager.js"></script>
+    <script src="sithasobase/scripts/WSManager.js"></script>
     <style>
         .chat-log {
             height: 400px;
@@ -42,7 +42,7 @@
     <!-- Header -->
     <div class="navbar bg-base-100 shadow rounded-box mb-6">
         <div class="flex-1 gap-2">
-            <a class="btn btn-ghost text-xl">💬 SSE Chat Simulation</a>
+            <a class="btn btn-ghost text-xl">💬 WebSocket Chat Simulation</a>
             <button id="btn-demo" class="btn btn-sm btn-outline btn-primary">🎙️ Podcast Demo</button>
             <button id="btn-stop-demo" class="btn btn-sm btn-outline btn-error hidden">🛑 Stop Podcast</button>
         </div>
@@ -211,7 +211,7 @@
                 this.name = name;
                 this.panel = document.getElementById(panelId);
                 this.avatar = avatar || `https://ui-avatars.com/api/?name=${name}&background=random`;
-                this.sse = null;
+                this.ws = null;
 
                 // Elements
                 this.elStatus = this.panel.querySelector('.status-badge');
@@ -247,8 +247,8 @@
             }
 
             toggleConnect() {
-                if (this.sse && this.sse.isConnected) {
-                    this.sse.disconnect();
+                if (this.ws && this.ws.isConnected) {
+                    this.ws.disconnect();
                 } else {
                     this.connect().catch(e => console.error("Manual connect failed", e));
                 }
@@ -260,10 +260,10 @@
                 return new Promise((resolve, reject) => {
                     this.appendLog("System", "Connecting...", "neutral");
 
-                    this.sse = new SSEManager('sithasobase/php/get_sse_config.php', {
+                    this.ws = new WSManager('sithasobase/php/get_ws_config.php', {
                         userId: this.name,
                         onConfigLoaded: (conf) => {
-                            this.appendLog("System", `Config loaded. Stream: ${conf.streamUrl}`, "info");
+                            this.appendLog("System", `Config loaded. WS: ${conf.wsUrl}`, "info");
                         },
                         onConnecting: (url) => {
                             this.appendLog("System", `Connecting to ${url}...`, "neutral");
@@ -275,12 +275,12 @@
                             this.elBtnConnect.textContent = "Disconnect";
                             this.elBtnConnect.classList.replace('btn-primary', 'btn-error');
                             this.elBtnConnect.classList.replace('btn-secondary', 'btn-error');
-                            this.sse.subscribe(['chat.general']);
+                            this.ws.subscribe(['chat.general']);
                             this.updateTopicDropdown(['chat.general'], true);
                             resolve(data);
                         },
                         onOpen: () => {
-                            this.appendLog("System", "Connection stream opened (Awaiting Handshake...)", "info");
+                            this.appendLog("System", "Connection opened (Awaiting Handshake...)", "info");
                         },
                         onDisconnected: () => {
                             this.status = 'offline';
@@ -291,7 +291,7 @@
                             this.renderTopics();
                         },
                         onError: (err) => {
-                            console.error(`[${this.name}] SSE Error:`, err);
+                            console.error(`[${this.name}] WS Error:`, err);
                             this.appendLog("Error", err.message || "Connection failed", "error");
                             reject(err);
                         },
@@ -313,7 +313,7 @@
                         }
                     });
 
-                    this.sse.connect();
+                    this.ws.connect();
                 });
             }
 
@@ -329,23 +329,23 @@
                     topics = Array.isArray(topicsOrEvent) ? topicsOrEvent : [topicsOrEvent];
                 }
 
-                if (!this.sse || !this.sse.isConnected) {
+                if (!this.ws || !this.ws.isConnected) {
                     this.appendLog("Error", "Not connected to server", "error");
                     return;
                 }
                 if (topics.length > 0) {
-                    await this.sse.subscribe(topics);
+                    this.ws.subscribe(topics);
                 }
             }
 
             async unsubscribe() {
                 const topic = this.elSubInput.value.trim();
-                if (!this.sse || !this.sse.isConnected) {
+                if (!this.ws || !this.ws.isConnected) {
                     this.appendLog("Error", "Not connected to server", "error");
                     return;
                 }
                 if (topic) {
-                    await this.sse.unsubscribe([topic]);
+                    this.ws.unsubscribe([topic]);
                 }
             }
 
@@ -360,12 +360,13 @@
             }
 
             async publish(topic, text) {
-                if (!this.sse || !this.sse.isConnected) {
+                if (!this.ws || !this.ws.isConnected) {
                     this.appendLog("Error", "Not connected to server", "error");
                     return;
                 }
 
-                await this.sse.publish([topic], 'message', {
+                // Use publish() method for SSE API compatibility
+                await this.ws.publish([topic], 'message', {
                     sender: this.name,
                     text: text,
                     timestamp: new Date().toISOString()
@@ -418,9 +419,9 @@
 
             renderTopics() {
                 this.elTopicList.innerHTML = '';
-                if (!this.sse) return;
+                if (!this.ws) return;
 
-                this.sse.activeTopics.forEach(t => {
+                this.ws.activeTopics.forEach(t => {
                     const badge = document.createElement('span');
                     badge.className = "badge badge-neutral";
                     badge.textContent = t;
@@ -612,7 +613,7 @@
             }
 
             // Init Server Manager for Control Actions
-            const serverManager = new SSEManager('sithasobase/php/get_sse_config.php');
+            const serverManager = new WSManager('sithasobase/php/get_ws_config.php');
 
             // 3. Orchestrator (Action Handler)
             async function executeServerAction(action = 'status') {
@@ -629,7 +630,7 @@
                 }
 
                 try {
-                    // Perform Action via SSEManager
+                    // Perform Action via WSManager
                     let data;
                     if (action === 'status') {
                         data = await serverManager.getStatus();
@@ -706,103 +707,87 @@
             const podcastScript = [
                 {
                     sender: alice,
-                    text: "Hey Bob! I was thinking... how do we explain this 'SSE' thing to someone just starting out, like a 14-year-old coder or even a non-programmer?"
+                    text: "Hey Bob! I was thinking... how do we explain this 'WebSocket' thing to someone just starting out, like a 14-year-old coder or even a non-programmer?"
                 },
                 {
                     sender: bob,
-                    text: "Great question, Alice! SSE stands for 'Server-Sent Events'. It's exactly what it says on the tin: the server 'sends' events to you, instead of you having to ask for them over and over."
+                    text: "Great question, Alice! WebSockets are like a 'Phone Call' between your browser and the server. Unlike regular HTTP where you have to ask for updates, WebSockets keep the line open for instant two-way communication."
                 },
                 {
                     sender: alice,
-                    text: "I usually tell people it's like a 'Radio Station'. Your browser 'tunes in' to a specific channel, and then the server just broadcasts updates whenever something new happens."
+                    text: "Exactly! It's like upgrading from sending letters (HTTP requests) to having a live conversation. Once the connection is established, both sides can talk anytime without waiting."
                 },
                 {
                     sender: bob,
-                    text: "Right! But let's dig into the 'Why'. People often ask: 'Why not just use WebSockets? Aren't they the industry standard?'"
+                    text: "Right! And unlike SSE which is only server-to-client, WebSockets are perfect for real-time games, collaborative editing, or chat apps where everyone needs to send and receive instantly."
                 },
                 {
                     sender: alice,
-                    text: "That's where it gets interesting! It's not about which is 'better,' but which is right for the job. WebSockets are like a 'Phone Call'—amazing for two-way, high-speed talk like gaming or binary data."
+                    text: "That's where it gets interesting! It's not about which is 'better,' but which is right for the job. WebSockets shine when you need true bidirectional communication with minimal latency."
                 },
                 {
                     sender: bob,
-                    text: "Exactly. But for many apps—like chats, dashboards, or notifications—you mostly just need to *listen*. SSE is built for that. It uses standard HTTP, which means it slides through firewalls and proxies without needing special ports or complex server handshakes."
+                    text: "Exactly. The WebSocket handshake starts as a regular HTTP request but then 'upgrades' to a persistent TCP connection. This happens over port 80 or 443, so it works through most firewalls."
                 },
                 {
                     sender: alice,
-                    text: "Plus, SSE has browser-native 'reconnect' logic. If your signal drops, the browser automatically tries to get back on the air without us writing a single line of extra code. WebSockets usually need a whole library for that type of robustness."
+                    text: "Plus, WebSocket messages have very low overhead - just a few bytes for the frame header. Compare that to HTTP where each request has hundreds of bytes of headers!"
                 },
                 {
                     sender: bob,
-                    text: "Let's talk about the roles. The server—our `SseServer.php`—is the night watchman. It stays 'awake' in the background, listening for a UDP 'WAKEUP' nudge. When it feels that nudge, it checks the database and pushes new data to every listener."
+                    text: "Let's talk about the architecture. Our `WsServer.php` handles the WebSocket protocol handshake and manages all the connected clients. It uses Ratchet or a similar library under the hood."
                 },
                 {
                     sender: alice,
-                    text: "And the client—your browser—is the 'Professional Listener' using `SSEManager.js`. It just sits back, keeps the connection open, and reacts the moment new data arrives. It's incredibly light on the client side."
+                    text: "And the client side uses `WSManager.js` which provides a clean API similar to our SSE manager. It handles reconnection, topic subscriptions, and message routing automatically."
                 },
                 {
                     sender: bob,
-                    text: "And security? That's a huge topic. We have a settings file called `.apienv` where we keep the 'keys to the kingdom'—things like our database passwords."
+                    text: "Security is important too. We use the same `.apienv` configuration file, and `get_ws_config.php` acts as a security bridge just like with SSE - keeping secrets on the server."
                 },
                 {
                     sender: alice,
-                    text: "Right, but we can't just give that to the browser! That would be a disaster."
+                    text: "Right! The browser only gets the WebSocket URL and API key, never the database credentials. This 'defense in depth' approach keeps our app secure."
                 },
                 {
                     sender: bob,
-                    text: "Exactly! That's why we use `get_sse_config.php`. It acts as a 'Security Bridge'. When the browser starts, it asks the bridge for instructions. The bridge reads the secret `.apienv` file, but only passes on the public stuff—like the server port—to the browser. The database secrets stay hidden on the server."
+                    text: "WebSockets also support binary data natively. We can send images, audio, or any binary payload without base64 encoding overhead. Perfect for media-rich applications."
                 },
                 {
                     sender: alice,
-                    text: "So the browser knows *where* to go, but never *how* we actually talk to our database. Very clean! Now, Bob, let's go deeper. What about high-level security like CORS and CSRF?"
+                    text: "And with our topic-based subscription system, clients only receive messages they're interested in. It's like having multiple channels on the same connection!"
                 },
                 {
                     sender: bob,
-                    text: "Ah, the Master level stuff! Because SSE is just a standard HTTP request, we can use standard security. We check the 'Origin' header to make sure only *our* website can connect. And we use 'withCredentials' set to true so the browser can send cookies for authentication."
+                    text: "The auto-reconnection feature is crucial too. If the connection drops, WSManager automatically tries to reconnect with exponential backoff. Users barely notice interruptions."
                 },
                 {
                     sender: alice,
-                    text: "So it integrates perfectly with standard login systems. No need to build a whole new auth layer just for real-time. That's a huge time-saver."
+                    text: "Scaling WebSockets is more complex than SSE since you need to handle stateful connections. But with proper architecture using Redis or message queues, you can scale to millions of users."
                 },
                 {
                     sender: bob,
-                    text: "Totally. Now let's talk performance. People think PHP is 'too slow' for real-time. But a well-tuned PHP-FPM pool can handle thousands of these streams simultaneously."
+                    text: "For most applications though, a single WebSocket server can handle thousands of concurrent connections. PHP with Ratchet is surprisingly capable for real-time apps!"
                 },
                 {
                     sender: alice,
-                    text: "Right, you just have to watch out for things like 'session locking.' If you don't call `session_write_close()`, PHP will block other pages from loading while the SSE stream is open. That's a rookie mistake that causes major 'lag'!"
+                    text: "WebSockets also give us more control. We can implement custom heartbeat mechanisms, compression, and even multiplex multiple logical streams over one physical connection."
                 },
                 {
                     sender: bob,
-                    text: "Spoken like a pro! And what about scaling horizontally across multiple servers?"
+                    text: "Totally. It's about choosing the right tool. Need one-way server updates? Use SSE. Need full-duplex real-time? WebSockets are your answer. Both integrate beautifully with our SithasoBase framework."
                 },
                 {
                     sender: alice,
-                    text: "That's where the 'signaling' part gets clever. Instead of just a local UDP nudge, you'd use something like Redis Pub/Sub. When a message is published, Redis broadcasts it to all your SSE servers, and they push it to their local listeners. It can scale to millions of users that way."
+                    text: "It really is. Well Bob, I think we've covered WebSockets from basic concepts to scaling strategies. It's been quite a discussion!"
                 },
                 {
                     sender: bob,
-                    text: "Exactly. It's about building a 'Message Bus'. And we shouldn't forget the 'Last-Event-ID' header. If a client disconnects and comes back, they can tell the server exactly where they left off. The server then 'replays' the missed messages automatically."
+                    text: "It has! Remember - WebSockets are powerful but use them wisely. For simple notifications, SSE might be better. For true real-time collaboration, WebSockets shine. Happy coding, everyone!"
                 },
                 {
                     sender: alice,
-                    text: "It's like having a DVR for your data feed! No lost messages, even with a flaky Wi-Fi connection. And it's better for battery life than 'polling' because the radio on your phone doesn't have to keep switching on and off to ask for updates."
-                },
-                {
-                    sender: bob,
-                    text: "Precisely. It's the most efficient way to 'stay in the loop'. From beginner chat apps to industrial-grade log streaming and collaborative dashboards—it's the 'Goldilocks' solution that just works."
-                },
-                {
-                    sender: alice,
-                    text: "It really is. Well Bob, I think we've covered it all—from the first 'Hello World' to the high-performance Redis architectures. It's been a journey!"
-                },
-                {
-                    sender: bob,
-                    text: "It has. It's about using the right protocol for the right UX. Simplicity on the outside, industrial power on the inside. That's the SSE way. Happy coding, everyone!"
-                },
-                {
-                    sender: alice,
-                    text: "And remember—start small, but build for scale. Catch you in the next episode!"
+                    text: "And remember - start with your use case, then pick the protocol. Catch you in the next episode!"
                 }
             ];
 
@@ -820,7 +805,7 @@
                 btnStop.classList.remove('hidden');
 
                 try {
-                    addTimelineItem("Starting Podcast Demo...", 'info');
+                    addTimelineItem("Starting WebSocket Podcast Demo...", 'info');
 
                     // 1. Ensure connected (Wait for it)
                     await Promise.all([
@@ -858,9 +843,9 @@
                     }
 
                     if (!stopRequested) {
-                        addTimelineItem("Podcast Demo Completed!", 'success');
+                        addTimelineItem("WebSocket Podcast Demo Completed!", 'success');
                     } else {
-                        addTimelineItem("Podcast Demo Stopped.", 'warning');
+                        addTimelineItem("WebSocket Podcast Demo Stopped.", 'warning');
                     }
                 } catch (e) {
                     console.error("Demo failed", e);
