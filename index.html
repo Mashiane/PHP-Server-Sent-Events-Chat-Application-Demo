@@ -1,0 +1,894 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SSE Chat Simulation</title>
+    <!-- Dependencies -->
+    <link href="https://cdn.jsdelivr.net/npm/daisyui@5" rel="stylesheet" type="text/css" />
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <script src="sithasobase/scripts/SSEManager.js"></script>
+    <style>
+        .chat-log {
+            height: 400px;
+            overflow-y: auto;
+            scroll-behavior: smooth;
+        }
+
+        .chat-log::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .chat-log::-webkit-scrollbar-thumb {
+            background: #ccc;
+            border-radius: 3px;
+        }
+
+        .input-pub-data {
+            resize: none;
+            overflow-y: hidden;
+            min-height: 2rem;
+            max-height: 150px;
+            transition: height 0.1s ease;
+            line-height: normal !important;
+            padding-top: 0.5rem !important;
+        }
+    </style>
+</head>
+
+<body class="bg-base-200 min-h-screen p-4 font-sans">
+
+    <!-- Header -->
+    <div class="navbar bg-base-100 shadow rounded-box mb-6">
+        <div class="flex-1 gap-2">
+            <a class="btn btn-ghost text-xl">💬 SSE Chat Simulation</a>
+            <button id="btn-demo" class="btn btn-sm btn-outline btn-primary">🎙️ Podcast Demo</button>
+            <button id="btn-stop-demo" class="btn btn-sm btn-outline btn-error hidden">🛑 Stop Podcast</button>
+        </div>
+        <div class="flex gap-2 items-center">
+            <span class="text-xs opacity-50 mr-2">Alice & Bob Demo</span>
+
+            <span id="server-status" class="badge badge-lg badge-success">Running</span>
+            <!-- Soft Controls -->
+            <button id="btn-server-start" class="btn btn-sm btn-success hidden"
+                title="Resume connections">Resume</button>
+            <button id="btn-server-stop" class="btn btn-sm btn-warning" title="Pause connections">Pause</button>
+
+            <div class="divider divider-horizontal my-0"></div>
+
+            <!-- Hard Controls -->
+            <div class="dropdown dropdown-end">
+                <div tabindex="0" role="button" class="btn btn-sm btn-ghost btn-circle">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24"
+                        stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
+                    </svg>
+                </div>
+                <ul tabindex="0"
+                    class="menu menu-sm dropdown-content mt-3 z-[1] p-2 shadow bg-base-100 rounded-box w-40">
+                    <li><a id="btn-hard-start" class="text-success">Hard Start (Run)</a></li>
+                    <li><a id="btn-hard-stop" class="text-error">Hard Stop (Kill)</a></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Grid -->
+    <div class="grid grid-cols-1 lg:grid-cols-[1fr_1fr_250px] gap-6 max-w-7xl mx-auto">
+        <div
+            class="absolute text-xxl text-bold -left-10 top-1/2 -translate-y-1/2 -rotate-90 origin-center whitespace-nowrap text-[10px] font-bold tracking-widest uppercase pointer-events-none select-none">
+            Created with DaisyUI & TailwindCSS
+        </div>
+        <!-- ALICE COLUMN -->
+        <div id="alice-panel" class="card bg-base-100 shadow-xl border-t-4 border-primary">
+            <div class="card-body p-4">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="card-title text-primary flex items-center gap-2">
+                        <div class="avatar">
+                            <div class="w-8 h-8 rounded-full border border-primary/20">
+                                <img src="assets/alice_v2.png" alt="Alice" />
+                            </div>
+                        </div>
+                        Alice
+                    </h2>
+                    <div class="badge badge-error gap-1 status-badge">Offline</div>
+                </div>
+
+                <!-- Controls -->
+                <div class="flex gap-2 mb-4">
+                    <button class="btn btn-sm btn-primary btn-connect w-full">Connect</button>
+                </div>
+
+                <!-- Subs -->
+                <div class="join w-full mb-4">
+                    <input type="text" placeholder="Topic (e.g. chat.general)" value="chat.general"
+                        class="input input-sm input-bordered join-item w-full input-sub" />
+                    <button class="btn btn-sm btn-neutral join-item btn-sub">Sub</button>
+                    <button class="btn btn-sm btn-outline join-item btn-unsub">Unsub</button>
+                </div>
+
+                <div class="flex flex-wrap gap-1 mb-4 topic-list min-h-[1.5rem] text-xs">
+                    <!-- Badges -->
+                </div>
+
+                <!-- Chat Log -->
+                <div class="chat-log bg-base-200 rounded p-2 mb-4 flex flex-col gap-2 text-sm">
+                    <div class="text-center opacity-50 mt-10">Waiting for connection...</div>
+                </div>
+
+                <!-- Publish -->
+                <div class="form-control">
+                    <div id="alice-typing" class="text-xs italic opacity-50 mb-1 h-4 invisible">Alice is typing...
+                    </div>
+                    <div class="join w-full">
+                        <select class="select select-sm select-bordered join-item w-1/3 input-pub-topic">
+                            <option value="chat.general">chat.general</option>
+                        </select>
+                        <textarea placeholder="Message..."
+                            class="textarea textarea-sm textarea-bordered join-item w-full input-pub-data"
+                            rows="1"></textarea>
+                        <button class="btn btn-sm btn-primary join-item btn-send">Send</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- BOB COLUMN -->
+        <div id="bob-panel" class="card bg-base-100 shadow-xl border-t-4 border-secondary">
+            <div class="card-body p-4">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="card-title text-secondary flex items-center gap-2">
+                        <div class="avatar">
+                            <div class="w-8 h-8 rounded-full border border-secondary/20">
+                                <img src="assets/bob_v2.png" alt="Bob" />
+                            </div>
+                        </div>
+                        Bob
+                    </h2>
+                    <div class="badge badge-error gap-1 status-badge">Offline</div>
+                </div>
+
+                <!-- Controls -->
+                <div class="flex gap-2 mb-4">
+                    <button class="btn btn-sm btn-secondary btn-connect w-full">Connect</button>
+                </div>
+
+                <!-- Subs -->
+                <div class="join w-full mb-4">
+                    <input type="text" placeholder="Topic (e.g. chat.general)" value="chat.general"
+                        class="input input-sm input-bordered join-item w-full input-sub" />
+                    <button class="btn btn-sm btn-neutral join-item btn-sub">Sub</button>
+                    <button class="btn btn-sm btn-outline join-item btn-unsub">Unsub</button>
+                </div>
+
+                <!-- TIMELINE REMOVED FROM HERE -->
+                <div class="flex flex-wrap gap-1 mb-4 topic-list min-h-[1.5rem] text-xs">
+                    <!-- Badges -->
+                </div>
+
+                <!-- Chat Log -->
+                <div class="chat-log bg-base-200 rounded p-2 mb-4 flex flex-col gap-2 text-sm">
+                    <div class="text-center opacity-50 mt-10">Waiting for connection...</div>
+                </div>
+
+                <!-- Publish -->
+                <div class="form-control">
+                    <div id="bob-typing" class="text-xs italic opacity-50 mb-1 h-4 invisible">Bob is typing...</div>
+                    <div class="join w-full">
+                        <select class="select select-sm select-bordered join-item w-1/3 input-pub-topic">
+                            <option value="chat.general">chat.general</option>
+                        </select>
+                        <textarea placeholder="Message..."
+                            class="textarea textarea-sm textarea-bordered join-item w-full input-pub-data"
+                            rows="1"></textarea>
+                        <button class="btn btn-sm btn-secondary join-item btn-send">Send</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TIMELINE COLUMN -->
+        <div class="card bg-base-100 shadow-xl border-t-4 border-neutral h-full max-h-[600px] overflow-hidden">
+            <div class="card-body p-4">
+                <h2 class="card-title text-neutral text-sm mb-4">📜 Server Events</h2>
+                <div class="overflow-y-auto pr-2 max-h-[500px]" id="event-timeline-container">
+                    <ul class="timeline timeline-vertical timeline-compact" id="server-timeline">
+                        <!-- Items will be injected here -->
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- LOGIC -->
+    <script>
+        // --- Demo Client Class ---
+        class ChatClient {
+            constructor(name, panelId, avatar = null) {
+                this.name = name;
+                this.panel = document.getElementById(panelId);
+                this.avatar = avatar || `https://ui-avatars.com/api/?name=${name}&background=random`;
+                this.sse = null;
+
+                // Elements
+                this.elStatus = this.panel.querySelector('.status-badge');
+                this.elBtnConnect = this.panel.querySelector('.btn-connect');
+                this.elSubInput = this.panel.querySelector('.input-sub');
+                this.elBtnSub = this.panel.querySelector('.btn-sub');
+                this.elBtnUnsub = this.panel.querySelector('.btn-unsub');
+                this.elTopicList = this.panel.querySelector('.topic-list');
+                this.elLog = this.panel.querySelector('.chat-log');
+                this.elPubTopic = this.panel.querySelector('.input-pub-topic');
+                this.elPubData = this.panel.querySelector('.input-pub-data');
+                this.elBtnSend = this.panel.querySelector('.btn-send');
+                this.elTyping = this.panel.querySelector('.text-xs.italic');
+
+                // Bindings
+                this.elBtnConnect.onclick = () => this.toggleConnect();
+                this.elBtnSub.onclick = (e) => this.subscribe(e);
+                this.elBtnUnsub.onclick = (e) => this.unsubscribe(e);
+                this.elBtnSend.onclick = () => this.send();
+
+                // Enter key support for message input (Enter to send, Shift+Enter for newline)
+                this.elPubData.addEventListener('input', () => this.autoGrow());
+                this.elPubData.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        this.send();
+                    }
+                });
+
+                // Defaults
+                this.status = 'offline';
+                this.updateStatus('offline');
+            }
+
+            toggleConnect() {
+                if (this.sse && this.sse.isConnected) {
+                    this.sse.disconnect();
+                } else {
+                    this.connect().catch(e => console.error("Manual connect failed", e));
+                }
+            }
+
+            connect() {
+                if (this.status === 'online') return Promise.resolve();
+
+                return new Promise((resolve, reject) => {
+                    this.appendLog("System", "Connecting...", "neutral");
+
+                    this.sse = new SSEManager('sithasobase/php/get_sse_config.php', {
+                        userId: this.name,
+                        onConfigLoaded: (conf) => {
+                            this.appendLog("System", `Config loaded. Stream: ${conf.streamUrl}`, "info");
+                        },
+                        onConnecting: (url) => {
+                            this.appendLog("System", `Connecting to ${url}...`, "neutral");
+                        },
+                        onConnected: (data) => {
+                            this.status = 'online';
+                            this.updateStatus('online');
+                            this.appendLog("System", `Connected (ID: ${data.connectionId})`, "success");
+                            this.elBtnConnect.textContent = "Disconnect";
+                            this.elBtnConnect.classList.replace('btn-primary', 'btn-error');
+                            this.elBtnConnect.classList.replace('btn-secondary', 'btn-error');
+                            this.sse.subscribe(['chat.general']);
+                            this.updateTopicDropdown(['chat.general'], true);
+                            resolve(data);
+                        },
+                        onOpen: () => {
+                            this.appendLog("System", "Connection stream opened (Awaiting Handshake...)", "info");
+                        },
+                        onDisconnected: () => {
+                            this.status = 'offline';
+                            this.updateStatus('offline');
+                            this.appendLog("System", "Disconnected", "warning");
+                            this.elBtnConnect.textContent = "Connect";
+                            this.elBtnConnect.classList.replace('btn-error', this.name === 'Alice' ? 'btn-primary' : 'btn-secondary');
+                            this.renderTopics();
+                        },
+                        onError: (err) => {
+                            console.error(`[${this.name}] SSE Error:`, err);
+                            this.appendLog("Error", err.message || "Connection failed", "error");
+                            reject(err);
+                        },
+                        onSubscribed: (topics) => {
+                            this.appendLog("System", `Subscribed: ${topics.join(', ')}`, "info");
+                            this.renderTopics();
+                            this.updateTopicDropdown(topics, true);
+                        },
+                        onUnsubscribed: (topics) => {
+                            this.appendLog("System", `Unsubscribed: ${topics.join(', ')}`, "info");
+                            this.renderTopics();
+                            this.updateTopicDropdown(topics, false);
+                        },
+                        onServerShutdown: (data) => {
+                            this.appendLog("System", `Server Shutdown: ${data.reason || 'Server stopped'}`, "error");
+                        },
+                        onMessage: (event, data) => {
+                            this.appendLog(event, data, "chat");
+                        }
+                    });
+
+                    this.sse.connect();
+                });
+            }
+
+            async subscribe(topicsOrEvent = null) {
+                // Determine if called from UI (no args) or script (with args)
+                let topics = [];
+                if (topicsOrEvent && topicsOrEvent instanceof Event) {
+                    // UI call
+                    const topic = this.elSubInput.value.trim();
+                    if (topic) topics = [topic];
+                } else if (topicsOrEvent) {
+                    // Script call
+                    topics = Array.isArray(topicsOrEvent) ? topicsOrEvent : [topicsOrEvent];
+                }
+
+                if (!this.sse || !this.sse.isConnected) {
+                    this.appendLog("Error", "Not connected to server", "error");
+                    return;
+                }
+                if (topics.length > 0) {
+                    await this.sse.subscribe(topics);
+                }
+            }
+
+            async unsubscribe() {
+                const topic = this.elSubInput.value.trim();
+                if (!this.sse || !this.sse.isConnected) {
+                    this.appendLog("Error", "Not connected to server", "error");
+                    return;
+                }
+                if (topic) {
+                    await this.sse.unsubscribe([topic]);
+                }
+            }
+
+            async send() {
+                const topic = this.elPubTopic.value.trim();
+                const msg = this.elPubData.value.trim();
+                if (topic && msg) {
+                    await this.publish(topic, msg);
+                    this.elPubData.value = ''; // Clear input
+                    this.autoGrow(); // Reset height
+                }
+            }
+
+            async publish(topic, text) {
+                if (!this.sse || !this.sse.isConnected) {
+                    this.appendLog("Error", "Not connected to server", "error");
+                    return;
+                }
+
+                await this.sse.publish([topic], 'message', {
+                    sender: this.name,
+                    text: text,
+                    timestamp: new Date().toISOString()
+                });
+            }
+
+            updateTopicDropdown(topics, isAdding) {
+                if (!this.elPubTopic) return;
+
+                if (isAdding) {
+                    topics.forEach(t => {
+                        // Check if exists
+                        let exists = false;
+                        for (let i = 0; i < this.elPubTopic.options.length; i++) {
+                            if (this.elPubTopic.options[i].value === t) exists = true;
+                        }
+
+                        if (!exists) {
+                            const opt = document.createElement('option');
+                            opt.value = t;
+                            opt.textContent = t;
+                            this.elPubTopic.appendChild(opt);
+                            // Auto-select the new one
+                            this.elPubTopic.value = t;
+                        }
+                    });
+                } else {
+                    topics.forEach(t => {
+                        for (let i = 0; i < this.elPubTopic.options.length; i++) {
+                            if (this.elPubTopic.options[i].value === t) {
+                                this.elPubTopic.remove(i);
+                                break;
+                            }
+                        }
+                    });
+
+                    // Fallback: If empty, add chat.general
+                    if (this.elPubTopic.options.length === 0) {
+                        const opt = document.createElement('option');
+                        opt.value = 'chat.general';
+                        opt.textContent = 'chat.general';
+                        this.elPubTopic.appendChild(opt);
+                    }
+
+                    if (this.elPubTopic.selectedIndex === -1 && this.elPubTopic.options.length > 0) {
+                        this.elPubTopic.selectedIndex = 0;
+                    }
+                }
+            }
+
+            renderTopics() {
+                this.elTopicList.innerHTML = '';
+                if (!this.sse) return;
+
+                this.sse.activeTopics.forEach(t => {
+                    const badge = document.createElement('span');
+                    badge.className = "badge badge-neutral";
+                    badge.textContent = t;
+                    this.elTopicList.appendChild(badge);
+                });
+            }
+
+            updateStatus(status) {
+                if (status === 'online') {
+                    this.elStatus.className = "badge badge-success gap-1 status-badge";
+                    this.elStatus.textContent = "Online";
+                } else {
+                    this.elStatus.className = "badge badge-error gap-1 status-badge";
+                    this.elStatus.textContent = "Offline";
+                }
+            }
+
+            appendLog(source, message, type) {
+                console.log(`[UI] Appended to ${this.name} (${type}):`, message); // TRACE
+                const isChat = type === "chat";
+                let content = "";
+
+                if (isChat) {
+                    // Chat Message Format
+                    // message is likely an object { sender, text, ... }
+                    const sender = message.sender || "Unknown";
+                    const text = message.text || JSON.stringify(message);
+                    const isMe = sender === this.name;
+
+                    content = `
+                        <div class="chat ${isMe ? 'chat-end' : 'chat-start'}">
+                            <div class="chat-image avatar">
+                                <div class="w-10 rounded-full">
+                                    <img alt="${sender}" src="${isMe ? this.avatar : (sender === 'Bob' ? 'assets/bob_v2.png' : 'assets/alice_v2.png')}" />
+                                </div>
+                            </div>
+                            <div class="chat-header text-xs opacity-50 mb-1">
+                                ${sender} <time class="text-[10px] opacity-40 ml-1">${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</time>
+                            </div>
+                            <div class="chat-bubble ${isMe ? 'chat-bubble-primary' : 'chat-bubble-secondary'} text-sm shadow-sm">
+                                ${text}
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    // System Notification
+                    let color = "alert-info";
+                    if (type === "error") color = "alert-error";
+                    if (type === "success") color = "alert-success";
+                    if (type === "warning") color = "alert-warning";
+                    if (type === "neutral") color = "bg-base-300";
+
+                    content = `
+                        <div class="text-xs p-1 px-2 rounded ${color} bg-opacity-20 mb-1 opacity-80">
+                            <b>${source}:</b> ${message}
+                        </div>
+                    `;
+                }
+
+                this.elLog.insertAdjacentHTML('beforeend', content);
+                this.elLog.scrollTop = this.elLog.scrollHeight;
+            }
+
+            clear() {
+                this.elLog.innerHTML = '<div class="text-center opacity-30 text-xs italic">Conversation cleared</div>';
+            }
+
+            async simulateTyping(text, stopSignal) {
+                if (!this.elPubData) return;
+
+                this.elTyping.classList.remove('invisible');
+                this.elPubData.value = '';
+                this.autoGrow();
+
+                for (let i = 0; i < text.length; i++) {
+                    if (stopSignal()) break;
+
+                    const char = text[i];
+                    this.elPubData.value += char;
+                    this.autoGrow();
+
+                    // --- HUMAN TIMING LOGIC ---
+                    // Base rhythm: 50-100ms
+                    let delay = 50 + Math.random() * 50;
+
+                    if ('.!?'.includes(char)) {
+                        delay = 500 + Math.random() * 200; // Pondering after sentence
+                    } else if (',;:'.includes(char)) {
+                        delay = 250 + Math.random() * 100; // Natural pause
+                    } else if (char === ' ') {
+                        delay = 80 + Math.random() * 70;   // Word boundary
+                    }
+
+                    await new Promise(r => setTimeout(r, delay));
+                }
+
+                this.elTyping.classList.add('invisible');
+            }
+
+            autoGrow() {
+                if (!this.elPubData) return;
+                this.elPubData.style.height = 'auto';
+                this.elPubData.style.height = (this.elPubData.scrollHeight) + 'px';
+            }
+        }
+
+        // --- Init ---
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- Server Control Initialization ---
+            const elStatus = document.querySelector('#server-status');
+            const elTimeline = document.querySelector('#server-timeline');
+
+            // Null check for critical elements
+            if (!elStatus || !elTimeline) {
+                console.error('Server control elements not found!');
+                return;
+            }
+
+            // Initialize button element references
+            const btnStart = document.querySelector('#btn-server-start');
+            const btnStop = document.querySelector('#btn-server-stop');
+            const btnHardStart = document.querySelector('#btn-hard-start');
+            const btnHardStop = document.querySelector('#btn-hard-stop');
+
+            let lastUnknownStatus = null; // Track changes
+
+            function addTimelineItem(title, type = 'info') {
+                const time = new Date().toLocaleTimeString();
+                let icon = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm.75-11.25a.75.75 0 00-1.5 0v2.5h-2.5a.75.75 0 000 1.5h2.5v2.5a.75.75 0 001.5 0v-2.5h2.5a.75.75 0 000-1.5h-2.5v-2.5z" clip-rule="evenodd" /></svg>';
+
+                if (type === 'success') icon = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clip-rule="evenodd" /></svg>';
+                if (type === 'warning') icon = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-5a.75.75 0 01.75.75v4.5a.75.75 0 01-1.5 0v-4.5A.75.75 0 0110 5zm0 10a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" /></svg>';
+                if (type === 'error') icon = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z" clip-rule="evenodd" /></svg>';
+
+                let colorClass = 'text-primary';
+                if (type === 'success') colorClass = 'text-success';
+                if (type === 'warning') colorClass = 'text-warning';
+                if (type === 'error') colorClass = 'text-error';
+
+                const li = document.createElement('li');
+                li.innerHTML = `
+                    <hr class="bg-base-300"/>
+                    <div class="timeline-middle ${colorClass}">
+                        ${icon}
+                    </div>
+                    <div class="timeline-end timeline-box w-full text-xs p-2 py-1">${title} <div class="opacity-50 text-[10px]">${time}</div></div>
+                    <hr class="bg-base-300"/>
+                `;
+                elTimeline.appendChild(li);
+
+                // Auto scroll to bottom
+                const container = document.getElementById('event-timeline-container');
+                container.scrollTop = container.scrollHeight;
+            }
+
+            // --- Separation of Concerns ---
+
+            // 2. UI Updater (Pure Display Logic)
+            function updateUiState(status) {
+                // Update Badge
+                if (status === 'running') {
+                    elStatus.textContent = 'Running';
+                    elStatus.className = 'badge badge-lg badge-success';
+                    btnStart.classList.add('hidden');
+                    btnStop.classList.remove('hidden');
+                    btnHardStart.parentElement.classList.add('disabled');
+                    btnHardStop.parentElement.classList.remove('disabled');
+                } else if (status === 'stopped') { // Paused
+                    elStatus.textContent = 'Paused';
+                    elStatus.className = 'badge badge-lg badge-warning';
+                    btnStart.classList.remove('hidden');
+                    btnStop.classList.add('hidden');
+                    btnHardStart.parentElement.classList.add('disabled');
+                    btnHardStop.parentElement.classList.remove('disabled');
+                } else { // Offline
+                    elStatus.textContent = 'Server Down';
+                    elStatus.className = 'badge badge-lg badge-error';
+                    btnStart.classList.add('hidden');
+                    btnStop.classList.add('hidden');
+                    btnHardStart.parentElement.classList.remove('disabled');
+                    btnHardStop.parentElement.classList.add('disabled');
+                }
+
+                // Restore Buttons
+                btnStart.disabled = false;
+                btnStop.disabled = false;
+                btnStart.innerHTML = 'Resume';
+                btnStop.innerHTML = 'Pause';
+            }
+
+            // Init Server Manager for Control Actions
+            const serverManager = new SSEManager('sithasobase/php/get_sse_config.php');
+
+            // 3. Orchestrator (Action Handler)
+            async function executeServerAction(action = 'status') {
+                // UI Loading Indication for Actions
+                if (action !== 'status') {
+                    if (action.startsWith('hard')) {
+                        addTimelineItem(`Executing ${action}...`, 'neutral');
+                    } else {
+                        const btn = action === 'start' ? btnStart : btnStop;
+                        btn.disabled = true;
+                        btn.innerHTML = `<span class="loading loading-spinner"></span>`;
+                        addTimelineItem(`Requesting: ${action}`, 'info');
+                    }
+                }
+
+                try {
+                    // Perform Action via SSEManager
+                    let data;
+                    if (action === 'status') {
+                        data = await serverManager.getStatus();
+                    } else {
+                        // Control Actions
+                        switch (action) {
+                            case 'start': data = await serverManager.start(); break;
+                            case 'stop': data = await serverManager.stop(); break;
+                            case 'hard_start': data = await serverManager.hardStart(); break;
+                            case 'hard_stop': data = await serverManager.hardStop(); break;
+                        }
+                    }
+
+                    // Log Status Change
+                    if (data && data.status !== lastUnknownStatus) {
+                        let type = 'info';
+                        if (data.status === 'running') type = 'success';
+                        if (data.status === 'stopped') type = 'warning';
+                        if (data.status === 'offline') type = 'error';
+
+                        if (lastUnknownStatus !== null) {
+                            addTimelineItem(`Status: ${data.status.toUpperCase()}`, type);
+                        }
+                        lastUnknownStatus = data.status;
+                    }
+
+                    // Update UI
+                    updateUiState(data.status);
+
+                } catch (e) {
+                    console.error("Control API Error", e);
+                    addTimelineItem(`Error: ${e.message}`, 'error');
+                    // Reset UI on error to prevent stuck state
+                    btnStart.disabled = false;
+                    btnStop.disabled = false;
+                    btnStart.innerHTML = 'Resume';
+                    btnStop.innerHTML = 'Pause';
+                }
+            }
+
+            btnStart.onclick = () => executeServerAction('start');
+            btnStop.onclick = () => executeServerAction('stop');
+
+            btnHardStart.onclick = async (e) => {
+                await executeServerAction('hard_start');
+                // Poll a few times as process startup might be slow
+                setTimeout(() => executeServerAction(), 500);
+                setTimeout(() => executeServerAction(), 1500);
+                setTimeout(() => executeServerAction(), 3000);
+                // Close dropdown
+                if (e.target.closest('.dropdown')) {
+                    document.activeElement.blur();
+                }
+            };
+
+            btnHardStop.onclick = (e) => {
+                executeServerAction('hard_stop');
+                // Close dropdown
+                if (e.target.closest('.dropdown')) {
+                    document.activeElement.blur();
+                }
+            };
+
+            // Init server status (After config load)
+            serverManager.initConfig().then(() => {
+                executeServerAction('status');
+            });
+
+            // --- Chat Client Initialization ---
+            const alice = new ChatClient('Alice', 'alice-panel', 'assets/alice_v2.png');
+            const bob = new ChatClient('Bob', 'bob-panel', 'assets/bob_v2.png');
+
+            // --- Podcast Demo Logic ---
+            const podcastScript = [
+                {
+                    sender: alice,
+                    text: "Hey Bob! I was thinking... how do we explain this 'SSE' thing to someone just starting out, like a 14-year-old coder or even a non-programmer?"
+                },
+                {
+                    sender: bob,
+                    text: "Great question, Alice! SSE stands for 'Server-Sent Events'. It's exactly what it says on the tin: the server 'sends' events to you, instead of you having to ask for them over and over."
+                },
+                {
+                    sender: alice,
+                    text: "I usually tell people it's like a 'Radio Station'. Your browser 'tunes in' to a specific channel, and then the server just broadcasts updates whenever something new happens."
+                },
+                {
+                    sender: bob,
+                    text: "Right! But let's dig into the 'Why'. People often ask: 'Why not just use WebSockets? Aren't they the industry standard?'"
+                },
+                {
+                    sender: alice,
+                    text: "That's where it gets interesting! It's not about which is 'better,' but which is right for the job. WebSockets are like a 'Phone Call'—amazing for two-way, high-speed talk like gaming or binary data."
+                },
+                {
+                    sender: bob,
+                    text: "Exactly. But for many apps—like chats, dashboards, or notifications—you mostly just need to *listen*. SSE is built for that. It uses standard HTTP, which means it slides through firewalls and proxies without needing special ports or complex server handshakes."
+                },
+                {
+                    sender: alice,
+                    text: "Plus, SSE has browser-native 'reconnect' logic. If your signal drops, the browser automatically tries to get back on the air without us writing a single line of extra code. WebSockets usually need a whole library for that type of robustness."
+                },
+                {
+                    sender: bob,
+                    text: "Let's talk about the roles. The server—our `SseServer.php`—is the night watchman. It stays 'awake' in the background, listening for a UDP 'WAKEUP' nudge. When it feels that nudge, it checks the database and pushes new data to every listener."
+                },
+                {
+                    sender: alice,
+                    text: "And the client—your browser—is the 'Professional Listener' using `SSEManager.js`. It just sits back, keeps the connection open, and reacts the moment new data arrives. It's incredibly light on the client side."
+                },
+                {
+                    sender: bob,
+                    text: "And security? That's a huge topic. We have a settings file called `.apienv` where we keep the 'keys to the kingdom'—things like our database passwords."
+                },
+                {
+                    sender: alice,
+                    text: "Right, but we can't just give that to the browser! That would be a disaster."
+                },
+                {
+                    sender: bob,
+                    text: "Exactly! That's why we use `get_sse_config.php`. It acts as a 'Security Bridge'. When the browser starts, it asks the bridge for instructions. The bridge reads the secret `.apienv` file, but only passes on the public stuff—like the server port—to the browser. The database secrets stay hidden on the server."
+                },
+                {
+                    sender: alice,
+                    text: "So the browser knows *where* to go, but never *how* we actually talk to our database. Very clean! Now, Bob, let's go deeper. What about high-level security like CORS and CSRF?"
+                },
+                {
+                    sender: bob,
+                    text: "Ah, the Master level stuff! Because SSE is just a standard HTTP request, we can use standard security. We check the 'Origin' header to make sure only *our* website can connect. And we use 'withCredentials' set to true so the browser can send cookies for authentication."
+                },
+                {
+                    sender: alice,
+                    text: "So it integrates perfectly with standard login systems. No need to build a whole new auth layer just for real-time. That's a huge time-saver."
+                },
+                {
+                    sender: bob,
+                    text: "Totally. Now let's talk performance. People think PHP is 'too slow' for real-time. But a well-tuned PHP-FPM pool can handle thousands of these streams simultaneously."
+                },
+                {
+                    sender: alice,
+                    text: "Right, you just have to watch out for things like 'session locking.' If you don't call `session_write_close()`, PHP will block other pages from loading while the SSE stream is open. That's a rookie mistake that causes major 'lag'!"
+                },
+                {
+                    sender: bob,
+                    text: "Spoken like a pro! And what about scaling horizontally across multiple servers?"
+                },
+                {
+                    sender: alice,
+                    text: "That's where the 'signaling' part gets clever. Instead of just a local UDP nudge, you'd use something like Redis Pub/Sub. When a message is published, Redis broadcasts it to all your SSE servers, and they push it to their local listeners. It can scale to millions of users that way."
+                },
+                {
+                    sender: bob,
+                    text: "Exactly. It's about building a 'Message Bus'. And we shouldn't forget the 'Last-Event-ID' header. If a client disconnects and comes back, they can tell the server exactly where they left off. The server then 'replays' the missed messages automatically."
+                },
+                {
+                    sender: alice,
+                    text: "It's like having a DVR for your data feed! No lost messages, even with a flaky Wi-Fi connection. And it's better for battery life than 'polling' because the radio on your phone doesn't have to keep switching on and off to ask for updates."
+                },
+                {
+                    sender: bob,
+                    text: "Precisely. It's the most efficient way to 'stay in the loop'. From beginner chat apps to industrial-grade log streaming and collaborative dashboards—it's the 'Goldilocks' solution that just works."
+                },
+                {
+                    sender: alice,
+                    text: "It really is. Well Bob, I think we've covered it all—from the first 'Hello World' to the high-performance Redis architectures. It's been a journey!"
+                },
+                {
+                    sender: bob,
+                    text: "It has. It's about using the right protocol for the right UX. Simplicity on the outside, industrial power on the inside. That's the SSE way. Happy coding, everyone!"
+                },
+                {
+                    sender: alice,
+                    text: "And remember—start small, but build for scale. Catch you in the next episode!"
+                }
+            ];
+
+            let demoInProgress = false;
+            let stopRequested = false;
+            async function startPodcastDemo() {
+                if (demoInProgress) return;
+                demoInProgress = true;
+                stopRequested = false;
+
+                const btnDemo = document.getElementById('btn-demo');
+                const btnStop = document.getElementById('btn-stop-demo');
+
+                btnDemo.classList.add('hidden');
+                btnStop.classList.remove('hidden');
+
+                try {
+                    addTimelineItem("Starting Podcast Demo...", 'info');
+
+                    // 1. Ensure connected (Wait for it)
+                    await Promise.all([
+                        alice.connect(),
+                        bob.connect()
+                    ]);
+
+                    if (stopRequested) return;
+
+                    // 2. Clear
+                    alice.clear();
+                    bob.clear();
+
+                    // 3. Sub (Ensure general + Wait for it)
+                    await Promise.all([
+                        alice.subscribe(['chat.general']),
+                        bob.subscribe(['chat.general'])
+                    ]);
+
+                    addTimelineItem("Connections ready. Starting script.", 'success');
+
+                    // 4. Run Script
+                    await new Promise(r => setTimeout(r, 2000));
+                    for (const line of podcastScript) {
+                        if (stopRequested) break;
+                        await line.sender.simulateTyping(line.text, () => stopRequested);
+                        if (stopRequested) break;
+                        await line.sender.publish('chat.general', line.text);
+                        line.sender.elPubData.value = '';
+                        line.sender.autoGrow();
+
+                        const words = line.text.split(' ').length;
+                        const readDelay = 1000 + (words * 300);
+                        await new Promise(r => setTimeout(r, readDelay));
+                    }
+
+                    if (!stopRequested) {
+                        addTimelineItem("Podcast Demo Completed!", 'success');
+                    } else {
+                        addTimelineItem("Podcast Demo Stopped.", 'warning');
+                    }
+                } catch (e) {
+                    console.error("Demo failed", e);
+                    addTimelineItem(`Demo Error: ${e.message}`, 'error');
+                } finally {
+                    btnDemo.classList.remove('hidden');
+                    btnStop.classList.add('hidden');
+                    demoInProgress = false;
+                    stopRequested = false;
+                }
+            }
+
+            document.getElementById('btn-demo').onclick = startPodcastDemo;
+            document.getElementById('btn-stop-demo').onclick = () => {
+                stopRequested = true;
+                addTimelineItem("Stopping Podcast...", 'warning');
+            };
+
+            // Global Error Handler for better debugging
+            window.addEventListener('error', (e) => {
+                console.error('Global Error Catch:', e);
+                addTimelineItem(`Browser: ${e.message}`, 'error');
+            });
+
+            // Auto Connect for convenience? No, let user click.
+        });
+
+    </script>
+</body>
+
+</html>
